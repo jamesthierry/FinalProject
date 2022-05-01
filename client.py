@@ -1,6 +1,6 @@
 import socket
 import threading
-import pickle
+import json
 
 # Choose username
 username = input("Welcome to ClassChat! Please choose your username: ")
@@ -29,8 +29,20 @@ def receive():
 # Send messages to server
 def write():
     while True:
-        message = '{}: {}'.format(username, input(''))
+        message = parseInput(input(''))
         client.send(message.encode('ascii'))
+
+def parseInput(userinput):
+    if userinput[0] == '@':
+        restofuserinput = userinput[1:]
+        user,_,message = restofuserinput.partition(" ")
+    else:
+        message = userinput
+        user = 'all'
+    return json.dumps(
+        {"message": message, "user": user, "from": username}
+    )
+
 
 # Start up threads
 receive_thread = threading.Thread(target=receive)

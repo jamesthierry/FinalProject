@@ -1,5 +1,6 @@
 import socket
 import threading
+import json
 
 serverHost = '127.0.0.1'
 serverPort = 2000
@@ -10,27 +11,38 @@ server.listen()
 
 clients = []
 usernames = []
+users = {}
 
 # Send messages to all clients
 def broadcast(message):
-    for client in clients:
+    for client in users.values():
         client.send(message)
+
+def processclientMessage(message):
+    clientdata = json.loads(message)
+    outgoingmessage = clientdata["from"].encode('ascii') + \
+            ": ".encode('ascii') + \
+            clientdata["message"].encode('ascii')
+    if clientdata["user"] == "all":
+        broadcast(outgoingmessage)
+    else:
+        users[clientdata["user"]].send(
+            outgoingmessage
+        )
     
 # Handle function
-def handle(client):
+def handle(client, user):
     while True:
         try:
             # Broadcast messages
             message = client.recv(1024)
-            broadcast(message)
-        except:
+            processclientMessage(message)
+        except Exception as e:
             # Delete and close down clients
-            index = clients.index(client)
-            clients.remove(client)
+            del users[user]
             client.close()
-            username = usernames[index]
-            broadcast('{} has left the chat!'.format(username).encode('ascii'))
-            usernames.remove(username)
+            broadcast('{} has left the chat!'.format(user).encode('ascii'))
+            #print(e)
             break
     
 # Receive/Listen
@@ -43,19 +55,18 @@ def receive():
         # Get and store username
         client.send('USER'.encode('ascii'))
         username = client.recv(1024).decode('ascii')
-        usernames.append(username)
-        clients.append(client)
+        users[username] = client
 
         # Print and show username
         print("Username is {}".format(username))
         broadcast("{} has joined the chat!".format(username).encode('ascii'))
-        users = []
-        users.append(username)
+        #users = {}
+        #users[username] = client
         client.send('Connected to server! \n'.encode('ascii'))
         client.send('Connected users: \n'.encode('ascii'))
 
         # Start thread for client
-        thread = threading.Thread(target=handle, args=(client,))
+        thread = threading.Thread(target=handle, args=(client, username))
         thread.start()
 
 print("Server is up and listening for incoming connections!")
